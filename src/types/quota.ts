@@ -306,3 +306,19 @@ export interface KimiQuotaState {
   error?: string;
   errorStatus?: number;
 }
+
+// Kiro quota types
+export interface KiroQuotaData {
+  currentUsage: number;
+  usageLimit: number;
+  nextReset?: number;
+}
+
+export interface KiroQuotaState {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  currentUsage: number;
+  usageLimit: number;
+  nextReset?: number;
+  error?: string;
+  errorStatus?: number;
+}
