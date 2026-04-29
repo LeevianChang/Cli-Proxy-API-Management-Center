@@ -28,6 +28,8 @@ import type {
   GeminiCliUserTier,
   KimiQuotaRow,
   KimiQuotaState,
+  KiroQuotaData,
+  KiroQuotaState,
 } from '@/types';
 import { apiCallApi, authFilesApi, getApiCallErrorMessage } from '@/services/api';
 import { useQuotaStore } from '@/stores';
@@ -73,6 +75,7 @@ import {
   isDisabledAuthFile,
   isGeminiCliFile,
   isKimiFile,
+  isKiroFile,
   isRuntimeOnlyAuthFile,
 } from '@/utils/quota';
 import { normalizeAuthIndex } from '@/utils/usage';
@@ -81,7 +84,7 @@ import styles from '@/pages/QuotaPage.module.scss';
 
 type QuotaUpdater<T> = T | ((prev: T) => T);
 
-type QuotaType = 'antigravity' | 'claude' | 'codex' | 'gemini-cli' | 'kimi';
+type QuotaType = 'antigravity' | 'claude' | 'codex' | 'gemini-cli' | 'kimi' | 'kiro';
 
 const DEFAULT_ANTIGRAVITY_PROJECT_ID = 'bamboo-precept-lgxtn';
 const QUOTA_PROGRESS_HIGH_THRESHOLD = 70;
@@ -98,11 +101,13 @@ export interface QuotaStore {
   codexQuota: Record<string, CodexQuotaState>;
   geminiCliQuota: Record<string, GeminiCliQuotaState>;
   kimiQuota: Record<string, KimiQuotaState>;
+  kiroQuota: Record<string, KiroQuotaState>;
   setAntigravityQuota: (updater: QuotaUpdater<Record<string, AntigravityQuotaState>>) => void;
   setClaudeQuota: (updater: QuotaUpdater<Record<string, ClaudeQuotaState>>) => void;
   setCodexQuota: (updater: QuotaUpdater<Record<string, CodexQuotaState>>) => void;
   setGeminiCliQuota: (updater: QuotaUpdater<Record<string, GeminiCliQuotaState>>) => void;
   setKimiQuota: (updater: QuotaUpdater<Record<string, KimiQuotaState>>) => void;
+  setKiroQuota: (updater: QuotaUpdater<Record<string, KiroQuotaState>>) => void;
   clearQuotaCache: () => void;
 }
 
@@ -1244,6 +1249,129 @@ export const GEMINI_CLI_CONFIG: QuotaConfig<
   controlClassName: styles.geminiCliControl,
   gridClassName: styles.geminiCliGrid,
   renderQuotaItems: renderGeminiCliItems,
+};
+
+const fetchKiroQuota = async (file: AuthFileItem, t: TFunction): Promise<KiroQuotaData> => {
+  const currentUsage = normalizeNumberValue(
+    file.kiro_current_usage ?? file['kiro_current_usage']
+  );
+  const usageLimit = normalizeNumberValue(file.kiro_usage_limit ?? file['kiro_usage_limit']);
+  const nextReset = normalizeNumberValue(file.kiro_next_reset ?? file['kiro_next_reset']);
+
+  if (currentUsage !== null && usageLimit !== null) {
+    return {
+      currentUsage,
+      usageLimit,
+      nextReset: nextReset ?? undefined,
+    };
+  }
+
+  const usage = await authFilesApi.getKiroUsage(file.name);
+  if (!usage) {
+    throw new Error(t('kiro_quota.empty_data'));
+  }
+
+  return {
+    currentUsage: usage.current_usage,
+    usageLimit: usage.usage_limit,
+    nextReset: usage.next_reset,
+  };
+};
+
+const renderKiroItems = (
+  quota: KiroQuotaState,
+  t: TFunction,
+  helpers: QuotaRenderHelpers
+): ReactNode => {
+  const { styles: styleMap, QuotaProgressBar } = helpers;
+  const { createElement: h, Fragment } = React;
+  const currentUsage = quota.currentUsage ?? 0;
+  const usageLimit = quota.usageLimit ?? 0;
+  const remaining = usageLimit > 0 ? Math.max(0, usageLimit - currentUsage) : null;
+  const remainingPercent =
+    usageLimit > 0 && remaining !== null
+      ? Math.max(0, Math.min(100, Math.round((remaining / usageLimit) * 100)))
+      : null;
+  const usedPercent =
+    usageLimit > 0 ? Math.max(0, Math.min(100, Math.round((currentUsage / usageLimit) * 100))) : null;
+  const resetMillis = quota.nextReset
+    ? quota.nextReset > 1_000_000_000_000
+      ? quota.nextReset
+      : quota.nextReset * 1000
+    : null;
+  const resetLabel = resetMillis ? formatQuotaResetTime(new Date(resetMillis).toISOString()) : '-';
+
+  return h(
+    Fragment,
+    null,
+    h(
+      'div',
+      { className: styleMap.codexPlan },
+      h('span', { className: styleMap.codexPlanLabel }, t('kiro_quota.usage_label')),
+      h(
+        'span',
+        { className: styleMap.codexPlanValue },
+        usageLimit > 0
+          ? t('kiro_quota.usage_format', { current: currentUsage, limit: usageLimit })
+          : t('kiro_quota.unlimited')
+      )
+    ),
+    h(
+      'div',
+      { className: styleMap.quotaRow },
+      h(
+        'div',
+        { className: styleMap.quotaRowHeader },
+        h('span', { className: styleMap.quotaModel }, t('kiro_quota.remaining_label')),
+        h(
+          'div',
+          { className: styleMap.quotaMeta },
+          h('span', { className: styleMap.quotaPercent }, remainingPercent === null ? '--' : `${remainingPercent}%`),
+          remaining !== null
+            ? h('span', { className: styleMap.quotaAmount }, `${remaining}`)
+            : null,
+          h('span', { className: styleMap.quotaReset }, resetLabel)
+        )
+      ),
+      h(QuotaProgressBar, {
+        percent: remainingPercent,
+        highThreshold: QUOTA_PROGRESS_HIGH_THRESHOLD,
+        mediumThreshold: QUOTA_PROGRESS_MEDIUM_THRESHOLD,
+      })
+    ),
+    usedPercent !== null
+      ? h('div', { className: styleMap.quotaMessage }, t('kiro_quota.usage_percentage', { percentage: usedPercent }))
+      : null
+  );
+};
+
+export const KIRO_CONFIG: QuotaConfig<KiroQuotaState, KiroQuotaData> = {
+  type: 'kiro',
+  i18nPrefix: 'kiro_quota',
+  cardIdleMessageKey: 'quota_management.card_idle_hint',
+  filterFn: (file) => isKiroFile(file) && !isDisabledAuthFile(file),
+  fetchQuota: fetchKiroQuota,
+  storeSelector: (state) => state.kiroQuota,
+  storeSetter: 'setKiroQuota',
+  buildLoadingState: () => ({ status: 'loading', currentUsage: 0, usageLimit: 0 }),
+  buildSuccessState: (data) => ({
+    status: 'success',
+    currentUsage: data.currentUsage,
+    usageLimit: data.usageLimit,
+    nextReset: data.nextReset,
+  }),
+  buildErrorState: (message, status) => ({
+    status: 'error',
+    currentUsage: 0,
+    usageLimit: 0,
+    error: message,
+    errorStatus: status,
+  }),
+  cardClassName: styles.kiroCard,
+  controlsClassName: styles.kiroControls,
+  controlClassName: styles.kiroControl,
+  gridClassName: styles.kiroGrid,
+  renderQuotaItems: renderKiroItems,
 };
 
 const fetchKimiQuota = async (

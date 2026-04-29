@@ -28,7 +28,7 @@ export type AuthFileModelItem = {
 };
 export type AuthFileIconAsset = string | { light: string; dark: string };
 
-export type QuotaProviderType = 'antigravity' | 'claude' | 'codex' | 'gemini-cli' | 'kimi';
+export type QuotaProviderType = 'antigravity' | 'claude' | 'codex' | 'gemini-cli' | 'kimi' | 'kiro';
 
 export const QUOTA_PROVIDER_TYPES = new Set<QuotaProviderType>([
   'antigravity',
@@ -36,6 +36,7 @@ export const QUOTA_PROVIDER_TYPES = new Set<QuotaProviderType>([
   'codex',
   'gemini-cli',
   'kimi',
+  'kiro',
 ]);
 
 export const MIN_CARD_PAGE_SIZE = 3;
@@ -57,6 +58,10 @@ export const TYPE_COLORS: Record<string, TypeColorSet> = {
   kimi: {
     light: { bg: '#dce8ff', text: '#0560cf' },
     dark: { bg: '#003880', text: '#70b5ff' },
+  },
+  kiro: {
+    light: { bg: '#fff3d6', text: '#9a5b00' },
+    dark: { bg: '#5a3600', text: '#ffd27a' },
   },
   // Gemini logo: 多色蓝 #3186FF（偏柔和的蓝）
   gemini: {
