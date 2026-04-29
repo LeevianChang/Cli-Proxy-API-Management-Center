@@ -19,6 +19,8 @@ import iconVertex from '@/assets/icons/vertex.svg';
 
 interface ProviderState {
   url?: string;
+  verificationUrl?: string;
+  userCode?: string;
   state?: string;
   status?: 'idle' | 'waiting' | 'success' | 'error';
   error?: string;
@@ -67,7 +69,8 @@ const PROVIDERS: { id: OAuthProvider; titleKey: string; hintKey: string; urlLabe
   { id: 'anthropic', titleKey: 'auth_login.anthropic_oauth_title', hintKey: 'auth_login.anthropic_oauth_hint', urlLabelKey: 'auth_login.anthropic_oauth_url_label', icon: iconClaude },
   { id: 'antigravity', titleKey: 'auth_login.antigravity_oauth_title', hintKey: 'auth_login.antigravity_oauth_hint', urlLabelKey: 'auth_login.antigravity_oauth_url_label', icon: iconAntigravity },
   { id: 'gemini-cli', titleKey: 'auth_login.gemini_cli_oauth_title', hintKey: 'auth_login.gemini_cli_oauth_hint', urlLabelKey: 'auth_login.gemini_cli_oauth_url_label', icon: iconGemini },
-  { id: 'kimi', titleKey: 'auth_login.kimi_oauth_title', hintKey: 'auth_login.kimi_oauth_hint', urlLabelKey: 'auth_login.kimi_oauth_url_label', icon: { light: iconKimiLight, dark: iconKimiDark } }
+  { id: 'kimi', titleKey: 'auth_login.kimi_oauth_title', hintKey: 'auth_login.kimi_oauth_hint', urlLabelKey: 'auth_login.kimi_oauth_url_label', icon: { light: iconKimiLight, dark: iconKimiDark } },
+  { id: 'kiro', titleKey: 'auth_login.kiro_oauth_title', hintKey: 'auth_login.kiro_oauth_hint', urlLabelKey: 'auth_login.kiro_oauth_url_label', icon: iconClaude }
 ];
 
 const CALLBACK_SUPPORTED: OAuthProvider[] = ['codex', 'anthropic', 'antigravity', 'gemini-cli'];
@@ -160,6 +163,8 @@ export function OAuthPage() {
     clearSuccessResetTimer(provider);
     updateProviderState(provider, {
       url: undefined,
+      verificationUrl: undefined,
+      userCode: undefined,
       state: undefined,
       status: 'success',
       error: undefined,
@@ -182,6 +187,24 @@ export function OAuthPage() {
         if (res.status === 'ok') {
           completeProviderAuth(provider);
           showNotification(t(getAuthKey(provider, 'oauth_status_success')), 'success');
+        } else if (res.status === 'device_code') {
+          updateProviderState(provider, {
+            status: 'waiting',
+            polling: true,
+            verificationUrl: res.verification_url,
+            userCode: res.user_code,
+            url: undefined,
+            error: undefined
+          });
+        } else if (res.status === 'auth_url') {
+          updateProviderState(provider, {
+            status: 'waiting',
+            polling: true,
+            url: res.url,
+            verificationUrl: undefined,
+            userCode: undefined,
+            error: undefined
+          });
         } else if (res.status === 'error') {
           updateProviderState(provider, { status: 'error', error: res.error, polling: false });
           showNotification(
@@ -215,6 +238,8 @@ export function OAuthPage() {
     }
     updateProviderState(provider, {
       url: undefined,
+      verificationUrl: undefined,
+      userCode: undefined,
       state: undefined,
       status: 'waiting',
       polling: true,
@@ -232,6 +257,8 @@ export function OAuthPage() {
         const message = t('auth_login.missing_state');
         updateProviderState(provider, {
           url: res.url,
+          verificationUrl: undefined,
+          userCode: undefined,
           state: undefined,
           status: 'error',
           error: message,
@@ -240,7 +267,14 @@ export function OAuthPage() {
         showNotification(message, 'error');
         return;
       }
-      updateProviderState(provider, { url: res.url, state: res.state, status: 'waiting', polling: true });
+      updateProviderState(provider, {
+        url: res.url,
+        verificationUrl: undefined,
+        userCode: undefined,
+        state: res.state,
+        status: 'waiting',
+        polling: true
+      });
       startPolling(provider, res.state);
     } catch (err: unknown) {
       const message = getErrorMessage(err);
@@ -428,6 +462,45 @@ export function OAuthPage() {
                         >
                           {t(getAuthKey(provider.id, 'open_link'))}
                         </Button>
+                      </div>
+                    </div>
+                  )}
+                  {state.verificationUrl && (
+                    <div className={styles.authUrlBox}>
+                      <div className={styles.authUrlLabel}>
+                        {t('auth_login.device_verification_url_label')}
+                      </div>
+                      <div className={styles.authUrlValue}>{state.verificationUrl}</div>
+                      {state.userCode && (
+                        <>
+                          <div className={styles.authUrlLabel}>{t('auth_login.device_user_code_label')}</div>
+                          <div className={styles.authUrlValue}>{state.userCode}</div>
+                        </>
+                      )}
+                      <div className={styles.authUrlActions}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => copyLink(state.verificationUrl!)}
+                        >
+                          {t(getAuthKey(provider.id, 'copy_link'))}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => window.open(state.verificationUrl, '_blank', 'noopener,noreferrer')}
+                        >
+                          {t(getAuthKey(provider.id, 'open_link'))}
+                        </Button>
+                        {state.userCode && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => copyLink(state.userCode)}
+                          >
+                            {t('auth_login.copy_user_code')}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   )}

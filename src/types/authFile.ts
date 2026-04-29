@@ -14,6 +14,7 @@ export type AuthFileType =
   | 'antigravity'
   | 'iflow'
   | 'vertex'
+  | 'kiro'
   | 'empty'
   | 'unknown';
 
@@ -30,6 +31,9 @@ export interface AuthFileItem {
   statusMessage?: string;
   lastRefresh?: string | number;
   modified?: number;
+  kiro_current_usage?: number;
+  kiro_usage_limit?: number;
+  kiro_next_reset?: number;
   [key: string]: unknown;
 }
 

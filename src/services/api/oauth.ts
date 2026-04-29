@@ -9,11 +9,20 @@ export type OAuthProvider =
   | 'anthropic'
   | 'antigravity'
   | 'gemini-cli'
-  | 'kimi';
+  | 'kimi'
+  | 'kiro';
 
 export interface OAuthStartResponse {
-  url: string;
+  url?: string;
   state?: string;
+}
+
+export interface OAuthStatusResponse {
+  status: 'ok' | 'wait' | 'error' | 'device_code' | 'auth_url';
+  error?: string;
+  url?: string;
+  verification_url?: string;
+  user_code?: string;
 }
 
 export interface OAuthCallbackResponse {
@@ -40,7 +49,7 @@ export const oauthApi = {
   },
 
   getAuthStatus: (state: string) =>
-    apiClient.get<{ status: 'ok' | 'wait' | 'error'; error?: string }>(`/get-auth-status`, {
+    apiClient.get<OAuthStatusResponse>(`/get-auth-status`, {
       params: { state }
     }),
 

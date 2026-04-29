@@ -516,5 +516,24 @@ export const authFilesApi = {
     return Array.isArray(models)
       ? (models as { id: string; display_name?: string; type?: string; owned_by?: string }[])
       : [];
+  },
+
+  // 获取 Kiro 认证文件的用量信息
+  async getKiroUsage(name: string): Promise<{ current_usage: number; usage_limit: number; next_reset?: number } | null> {
+    try {
+      const data = await apiClient.get<Record<string, unknown>>(
+        `/auth-files/kiro-usage?name=${encodeURIComponent(name)}`
+      );
+      if (data && typeof data.current_usage === 'number' && typeof data.usage_limit === 'number') {
+        return {
+          current_usage: data.current_usage,
+          usage_limit: data.usage_limit,
+          next_reset: typeof data.next_reset === 'number' ? data.next_reset : undefined,
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 };
