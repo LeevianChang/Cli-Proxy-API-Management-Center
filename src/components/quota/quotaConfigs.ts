@@ -1252,32 +1252,12 @@ export const GEMINI_CLI_CONFIG: QuotaConfig<
 };
 
 const fetchKiroQuota = async (file: AuthFileItem, t: TFunction): Promise<KiroQuotaData> => {
-  const currentUsage = normalizeNumberValue(
-    file.kiro_current_usage ?? file['kiro_current_usage']
-  );
-  const usageLimit = normalizeNumberValue(file.kiro_usage_limit ?? file['kiro_usage_limit']);
-  const nextReset = normalizeNumberValue(file.kiro_next_reset ?? file['kiro_next_reset']);
-
-  try {
-    const usage = await authFilesApi.getKiroUsage(file.name);
-    if (usage) {
-      return {
-        currentUsage: usage.current_usage,
-        usageLimit: usage.usage_limit,
-        nextReset: usage.next_reset,
-      };
-    }
-  } catch (err) {
-    if (currentUsage === null || usageLimit === null) {
-      throw err;
-    }
-  }
-
-  if (currentUsage !== null && usageLimit !== null) {
+  const usage = await authFilesApi.getKiroUsage(file.name);
+  if (usage) {
     return {
-      currentUsage,
-      usageLimit,
-      nextReset: nextReset ?? undefined,
+      currentUsage: usage.current_usage,
+      usageLimit: usage.usage_limit,
+      nextReset: usage.next_reset,
     };
   }
 
