@@ -1258,6 +1258,21 @@ const fetchKiroQuota = async (file: AuthFileItem, t: TFunction): Promise<KiroQuo
   const usageLimit = normalizeNumberValue(file.kiro_usage_limit ?? file['kiro_usage_limit']);
   const nextReset = normalizeNumberValue(file.kiro_next_reset ?? file['kiro_next_reset']);
 
+  try {
+    const usage = await authFilesApi.getKiroUsage(file.name);
+    if (usage) {
+      return {
+        currentUsage: usage.current_usage,
+        usageLimit: usage.usage_limit,
+        nextReset: usage.next_reset,
+      };
+    }
+  } catch (err) {
+    if (currentUsage === null || usageLimit === null) {
+      throw err;
+    }
+  }
+
   if (currentUsage !== null && usageLimit !== null) {
     return {
       currentUsage,
@@ -1266,16 +1281,7 @@ const fetchKiroQuota = async (file: AuthFileItem, t: TFunction): Promise<KiroQuo
     };
   }
 
-  const usage = await authFilesApi.getKiroUsage(file.name);
-  if (!usage) {
-    throw new Error(t('kiro_quota.empty_data'));
-  }
-
-  return {
-    currentUsage: usage.current_usage,
-    usageLimit: usage.usage_limit,
-    nextReset: usage.next_reset,
-  };
+  throw new Error(t('kiro_quota.empty_data'));
 };
 
 const renderKiroItems = (
