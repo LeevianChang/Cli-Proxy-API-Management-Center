@@ -20,6 +20,8 @@ import type {
   CodexUsageWindow,
   CodexQuotaWindow,
   CodexUsagePayload,
+  CursorQuotaModel,
+  CursorQuotaState,
   GeminiCliCodeAssistPayload,
   GeminiCliCredits,
   GeminiCliParsedBucket,
@@ -72,6 +74,7 @@ import {
   isAntigravityFile,
   isClaudeFile,
   isCodexFile,
+  isCursorFile,
   isDisabledAuthFile,
   isGeminiCliFile,
   isKimiFile,
@@ -84,7 +87,7 @@ import styles from '@/pages/QuotaPage.module.scss';
 
 type QuotaUpdater<T> = T | ((prev: T) => T);
 
-type QuotaType = 'antigravity' | 'claude' | 'codex' | 'gemini-cli' | 'kimi' | 'kiro';
+type QuotaType = 'antigravity' | 'claude' | 'codex' | 'gemini-cli' | 'kimi' | 'kiro' | 'cursor';
 
 const DEFAULT_ANTIGRAVITY_PROJECT_ID = 'bamboo-precept-lgxtn';
 const QUOTA_PROGRESS_HIGH_THRESHOLD = 70;
@@ -99,12 +102,14 @@ export interface QuotaStore {
   antigravityQuota: Record<string, AntigravityQuotaState>;
   claudeQuota: Record<string, ClaudeQuotaState>;
   codexQuota: Record<string, CodexQuotaState>;
+  cursorQuota: Record<string, CursorQuotaState>;
   geminiCliQuota: Record<string, GeminiCliQuotaState>;
   kimiQuota: Record<string, KimiQuotaState>;
   kiroQuota: Record<string, KiroQuotaState>;
   setAntigravityQuota: (updater: QuotaUpdater<Record<string, AntigravityQuotaState>>) => void;
   setClaudeQuota: (updater: QuotaUpdater<Record<string, ClaudeQuotaState>>) => void;
   setCodexQuota: (updater: QuotaUpdater<Record<string, CodexQuotaState>>) => void;
+  setCursorQuota: (updater: QuotaUpdater<Record<string, CursorQuotaState>>) => void;
   setGeminiCliQuota: (updater: QuotaUpdater<Record<string, GeminiCliQuotaState>>) => void;
   setKimiQuota: (updater: QuotaUpdater<Record<string, KimiQuotaState>>) => void;
   setKiroQuota: (updater: QuotaUpdater<Record<string, KiroQuotaState>>) => void;
@@ -1202,6 +1207,86 @@ export const CODEX_CONFIG: QuotaConfig<
   controlClassName: styles.codexControl,
   gridClassName: styles.codexGrid,
   renderQuotaItems: renderCodexItems,
+};
+
+const fetchCursorQuota = async (file: AuthFileItem): Promise<CursorQuotaModel[]> => {
+  const models = await authFilesApi.getModelsForAuthFile(file.name);
+  return models.map((model) => ({
+    id: model.id,
+    displayName: model.display_name,
+    type: model.type,
+    ownedBy: model.owned_by,
+  }));
+};
+
+const renderCursorItems = (
+  quota: CursorQuotaState,
+  t: TFunction,
+  helpers: QuotaRenderHelpers
+): ReactNode => {
+  const { styles: styleMap } = helpers;
+  const { createElement: h, Fragment } = React;
+  const models = quota.models ?? [];
+
+  if (models.length === 0) {
+    return h('div', { className: styleMap.quotaMessage }, t('cursor_quota.empty_models'));
+  }
+
+  const previewModels = models.slice(0, 6);
+  const hiddenCount = Math.max(0, models.length - previewModels.length);
+
+  return h(
+    Fragment,
+    null,
+    h(
+      'div',
+      { className: styleMap.codexPlan },
+      h('span', { className: styleMap.codexPlanLabel }, t('cursor_quota.available_models_label')),
+      h(
+        'span',
+        { className: styleMap.codexPlanValue },
+        t('cursor_quota.available_models_count', { count: models.length })
+      )
+    ),
+    ...previewModels.map((model) =>
+      h(
+        'div',
+        { key: model.id, className: styleMap.quotaRow },
+        h(
+          'div',
+          { className: styleMap.quotaRowHeader },
+          h('span', { className: styleMap.quotaModel, title: model.id }, model.displayName || model.id),
+          h('div', { className: styleMap.quotaMeta }, h('span', { className: styleMap.quotaReset }, model.id))
+        )
+      )
+    ),
+    hiddenCount > 0
+      ? h('div', { className: styleMap.quotaMessage }, t('cursor_quota.more_models', { count: hiddenCount }))
+      : null
+  );
+};
+
+export const CURSOR_CONFIG: QuotaConfig<CursorQuotaState, CursorQuotaModel[]> = {
+  type: 'cursor',
+  i18nPrefix: 'cursor_quota',
+  cardIdleMessageKey: 'quota_management.card_idle_hint',
+  filterFn: (file) => isCursorFile(file) && !isDisabledAuthFile(file),
+  fetchQuota: fetchCursorQuota,
+  storeSelector: (state) => state.cursorQuota,
+  storeSetter: 'setCursorQuota',
+  buildLoadingState: () => ({ status: 'loading', models: [] }),
+  buildSuccessState: (models) => ({ status: 'success', models }),
+  buildErrorState: (message, status) => ({
+    status: 'error',
+    models: [],
+    error: message,
+    errorStatus: status,
+  }),
+  cardClassName: styles.codexCard,
+  controlsClassName: styles.codexControls,
+  controlClassName: styles.codexControl,
+  gridClassName: styles.codexGrid,
+  renderQuotaItems: renderCursorItems,
 };
 
 export const GEMINI_CLI_CONFIG: QuotaConfig<

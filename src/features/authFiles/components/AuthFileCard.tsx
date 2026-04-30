@@ -99,9 +99,11 @@ export function AuthFileCard(props: AuthFileCardProps) {
       : quotaType === 'claude'
         ? styles.claudeCard
         : quotaType === 'codex'
-          ? styles.codexCard
-          : quotaType === 'gemini-cli'
-            ? styles.geminiCliCard
+        ? styles.codexCard
+        : quotaType === 'gemini-cli'
+          ? styles.geminiCliCard
+          : quotaType === 'cursor'
+            ? styles.codexCard
             : quotaType === 'kimi'
               ? styles.kimiCard
               : '';

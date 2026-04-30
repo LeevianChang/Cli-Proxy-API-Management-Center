@@ -10,6 +10,7 @@ export type OAuthProvider =
   | 'antigravity'
   | 'gemini-cli'
   | 'kimi'
+  | 'cursor'
   | 'kiro';
 
 export interface OAuthStartResponse {

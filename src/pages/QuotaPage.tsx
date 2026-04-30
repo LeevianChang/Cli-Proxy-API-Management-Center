@@ -12,6 +12,7 @@ import {
   ANTIGRAVITY_CONFIG,
   CLAUDE_CONFIG,
   CODEX_CONFIG,
+  CURSOR_CONFIG,
   GEMINI_CLI_CONFIG,
   KIMI_CONFIG,
   KIRO_CONFIG
@@ -86,6 +87,12 @@ export function QuotaPage() {
       />
       <QuotaSection
         config={CODEX_CONFIG}
+        files={files}
+        loading={loading}
+        disabled={disableControls}
+      />
+      <QuotaSection
+        config={CURSOR_CONFIG}
         files={files}
         loading={loading}
         disabled={disableControls}

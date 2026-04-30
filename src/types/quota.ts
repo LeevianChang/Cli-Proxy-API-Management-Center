@@ -193,6 +193,20 @@ export interface ClaudeQuotaState {
   errorStatus?: number;
 }
 
+export interface CursorQuotaModel {
+  id: string;
+  displayName?: string;
+  type?: string;
+  ownedBy?: string;
+}
+
+export interface CursorQuotaState {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  models: CursorQuotaModel[];
+  error?: string;
+  errorStatus?: number;
+}
+
 // Quota state types
 export interface AntigravityQuotaGroup {
   id: string;
