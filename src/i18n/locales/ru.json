@@ -705,7 +705,11 @@
     "fetch_all": "Проверить все",
     "available_models_label": "Доступные модели",
     "available_models_count": "{{count}} моделей",
-    "more_models": "Еще {{count}} моделей"
+    "more_models": "Еще {{count}} моделей",
+    "plan_label": "План",
+    "remaining_label": "Осталось",
+    "usage_percentage": "Использовано {{percentage}}%",
+    "unlimited": "Без лимита"
   },
   "gemini_cli_quota": {
     "title": "Квота Gemini CLI",

@@ -708,7 +708,11 @@
     "fetch_all": "檢查全部",
     "available_models_label": "可用模型",
     "available_models_count": "{{count}} 個",
-    "more_models": "還有 {{count}} 個模型"
+    "more_models": "還有 {{count}} 個模型",
+    "plan_label": "方案",
+    "remaining_label": "剩餘額度",
+    "usage_percentage": "已使用 {{percentage}}%",
+    "unlimited": "無限制"
   },
   "gemini_cli_quota": {
     "title": "Gemini CLI 配額",

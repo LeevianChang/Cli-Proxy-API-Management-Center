@@ -35,6 +35,12 @@ export interface AuthFileItem {
   kiro_current_usage?: number;
   kiro_usage_limit?: number;
   kiro_next_reset?: number;
+  cursor_current_usage?: number;
+  cursor_usage_limit?: number;
+  cursor_remaining?: number;
+  cursor_next_reset?: number;
+  cursor_billing_model?: string;
+  cursor_plan_label?: string;
   [key: string]: unknown;
 }
 

@@ -710,7 +710,11 @@
     "fetch_all": "检查全部",
     "available_models_label": "可用模型",
     "available_models_count": "{{count}} 个",
-    "more_models": "还有 {{count}} 个模型"
+    "more_models": "还有 {{count}} 个模型",
+    "plan_label": "套餐",
+    "remaining_label": "剩余额度",
+    "usage_percentage": "已使用 {{percentage}}%",
+    "unlimited": "无限制"
   },
   "kiro_quota": {
     "title": "Kiro 配额",

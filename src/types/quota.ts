@@ -203,8 +203,54 @@ export interface CursorQuotaModel {
 export interface CursorQuotaState {
   status: 'idle' | 'loading' | 'success' | 'error';
   models: CursorQuotaModel[];
+  billingModel?: string;
+  planLabel?: string;
+  subscriptionStatus?: string;
+  currentUsage?: number;
+  usageLimit?: number;
+  remaining?: number;
+  percentUsed?: number;
+  nextReset?: number;
+  creditUsage?: CursorCreditUsage | null;
+  legacyUsage?: CursorLegacyUsage | null;
   error?: string;
   errorStatus?: number;
+}
+
+export interface CursorCreditUsage {
+  used_cents?: number;
+  limit_cents?: number;
+  remaining_cents?: number;
+  percent_used?: number;
+  cycle_start?: string;
+  cycle_end?: string;
+}
+
+export interface CursorLegacyUsage {
+  used?: number;
+  max?: number;
+  percent_used?: number;
+  cycle_start?: string;
+  cycle_end?: string;
+}
+
+export interface CursorUsageResponse {
+  billing_model?: string;
+  plan_label?: string;
+  subscription_status?: string;
+  current_usage?: number;
+  usage_limit?: number;
+  remaining?: number;
+  percent_used?: number;
+  next_reset?: number;
+  credit_usage?: CursorCreditUsage | null;
+  legacy_usage?: CursorLegacyUsage | null;
+  warnings?: string[];
+  partial?: Record<string, string>;
+}
+
+export interface CursorQuotaData extends CursorUsageResponse {
+  models: CursorQuotaModel[];
 }
 
 // Quota state types

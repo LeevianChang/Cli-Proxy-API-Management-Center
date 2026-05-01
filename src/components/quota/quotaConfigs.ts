@@ -21,6 +21,7 @@ import type {
   CodexQuotaWindow,
   CodexUsagePayload,
   CursorQuotaModel,
+  CursorQuotaData,
   CursorQuotaState,
   GeminiCliCodeAssistPayload,
   GeminiCliCredits,
@@ -1209,14 +1210,20 @@ export const CODEX_CONFIG: QuotaConfig<
   renderQuotaItems: renderCodexItems,
 };
 
-const fetchCursorQuota = async (file: AuthFileItem): Promise<CursorQuotaModel[]> => {
-  const models = await authFilesApi.getModelsForAuthFile(file.name);
-  return models.map((model) => ({
+const fetchCursorQuota = async (file: AuthFileItem): Promise<CursorQuotaData> => {
+  const [models, usage] = await Promise.all([
+    authFilesApi.getModelsForAuthFile(file.name),
+    authFilesApi.getCursorUsage(file.name).catch(() => null),
+  ]);
+  return {
+    ...(usage ?? {}),
+    models: models.map((model) => ({
     id: model.id,
     displayName: model.display_name,
     type: model.type,
     ownedBy: model.owned_by,
-  }));
+    })),
+  } as CursorQuotaData;
 };
 
 const renderCursorItems = (
@@ -1224,13 +1231,35 @@ const renderCursorItems = (
   t: TFunction,
   helpers: QuotaRenderHelpers
 ): ReactNode => {
-  const { styles: styleMap } = helpers;
+  const { styles: styleMap, QuotaProgressBar } = helpers;
   const { createElement: h, Fragment } = React;
   const models = quota.models ?? [];
 
-  if (models.length === 0) {
-    return h('div', { className: styleMap.quotaMessage }, t('cursor_quota.empty_models'));
-  }
+  const billingModel = quota.billingModel ?? 'unknown';
+  const usageLimit = quota.usageLimit ?? 0;
+  const currentUsage = quota.currentUsage ?? 0;
+  const remaining = quota.remaining ?? (usageLimit > 0 ? Math.max(0, usageLimit - currentUsage) : 0);
+  const usedPercent =
+    typeof quota.percentUsed === 'number'
+      ? Math.max(0, Math.min(100, Math.round(quota.percentUsed)))
+      : usageLimit > 0
+        ? Math.max(0, Math.min(100, Math.round((currentUsage / usageLimit) * 100)))
+        : null;
+  const remainingPercent = usedPercent === null ? null : Math.max(0, 100 - usedPercent);
+  const resetMillis = quota.nextReset
+    ? quota.nextReset > 1_000_000_000_000
+      ? quota.nextReset
+      : quota.nextReset * 1000
+    : null;
+  const resetLabel = resetMillis ? formatQuotaResetTime(new Date(resetMillis).toISOString()) : '-';
+  const amountLabel =
+    billingModel === 'usd_credit'
+      ? `$${(currentUsage / 100).toFixed(2)} / $${(usageLimit / 100).toFixed(2)}`
+      : usageLimit > 0
+        ? `${currentUsage} / ${usageLimit}`
+        : t('cursor_quota.unlimited');
+  const remainingLabel =
+    billingModel === 'usd_credit' ? `$${(remaining / 100).toFixed(2)}` : `${remaining}`;
 
   const previewModels = models.slice(0, 6);
   const hiddenCount = Math.max(0, models.length - previewModels.length);
@@ -1241,6 +1270,36 @@ const renderCursorItems = (
     h(
       'div',
       { className: styleMap.codexPlan },
+      h('span', { className: styleMap.codexPlanLabel }, quota.planLabel ?? t('cursor_quota.plan_label')),
+      h('span', { className: styleMap.codexPlanValue }, amountLabel)
+    ),
+    h(
+      'div',
+      { className: styleMap.quotaRow },
+      h(
+        'div',
+        { className: styleMap.quotaRowHeader },
+        h('span', { className: styleMap.quotaModel }, t('cursor_quota.remaining_label')),
+        h(
+          'div',
+          { className: styleMap.quotaMeta },
+          h('span', { className: styleMap.quotaPercent }, remainingPercent === null ? '--' : `${remainingPercent}%`),
+          h('span', { className: styleMap.quotaAmount }, remainingLabel),
+          h('span', { className: styleMap.quotaReset }, resetLabel)
+        )
+      ),
+      h(QuotaProgressBar, {
+        percent: remainingPercent,
+        highThreshold: QUOTA_PROGRESS_HIGH_THRESHOLD,
+        mediumThreshold: QUOTA_PROGRESS_MEDIUM_THRESHOLD,
+      })
+    ),
+    usedPercent !== null
+      ? h('div', { className: styleMap.quotaMessage }, t('cursor_quota.usage_percentage', { percentage: usedPercent }))
+      : null,
+    h(
+      'div',
+      { className: styleMap.codexPlan },
       h('span', { className: styleMap.codexPlanLabel }, t('cursor_quota.available_models_label')),
       h(
         'span',
@@ -1248,7 +1307,8 @@ const renderCursorItems = (
         t('cursor_quota.available_models_count', { count: models.length })
       )
     ),
-    ...previewModels.map((model) =>
+    ...(previewModels.length > 0
+      ? previewModels.map((model) =>
       h(
         'div',
         { key: model.id, className: styleMap.quotaRow },
@@ -1259,14 +1319,15 @@ const renderCursorItems = (
           h('div', { className: styleMap.quotaMeta }, h('span', { className: styleMap.quotaReset }, model.id))
         )
       )
-    ),
+      )
+      : [h('div', { key: 'empty-models', className: styleMap.quotaMessage }, t('cursor_quota.empty_models'))]),
     hiddenCount > 0
       ? h('div', { className: styleMap.quotaMessage }, t('cursor_quota.more_models', { count: hiddenCount }))
       : null
   );
 };
 
-export const CURSOR_CONFIG: QuotaConfig<CursorQuotaState, CursorQuotaModel[]> = {
+export const CURSOR_CONFIG: QuotaConfig<CursorQuotaState, CursorQuotaData> = {
   type: 'cursor',
   i18nPrefix: 'cursor_quota',
   cardIdleMessageKey: 'quota_management.card_idle_hint',
@@ -1275,7 +1336,20 @@ export const CURSOR_CONFIG: QuotaConfig<CursorQuotaState, CursorQuotaModel[]> = 
   storeSelector: (state) => state.cursorQuota,
   storeSetter: 'setCursorQuota',
   buildLoadingState: () => ({ status: 'loading', models: [] }),
-  buildSuccessState: (models) => ({ status: 'success', models }),
+  buildSuccessState: (data) => ({
+    status: 'success',
+    models: data.models,
+    billingModel: data.billing_model,
+    planLabel: data.plan_label,
+    subscriptionStatus: data.subscription_status,
+    currentUsage: data.current_usage,
+    usageLimit: data.usage_limit,
+    remaining: data.remaining,
+    percentUsed: data.percent_used,
+    nextReset: data.next_reset,
+    creditUsage: data.credit_usage,
+    legacyUsage: data.legacy_usage,
+  }),
   buildErrorState: (message, status) => ({
     status: 'error',
     models: [],

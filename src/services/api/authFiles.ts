@@ -531,5 +531,14 @@ export const authFilesApi = {
       };
     }
     return null;
+  },
+
+  // 获取 Cursor 认证文件的用量/额度信息
+  async getCursorUsage(name: string): Promise<Record<string, unknown> | null> {
+    const data = await apiClient.get<Record<string, unknown>>(
+      `/auth-files/cursor-usage?name=${encodeURIComponent(name)}`
+    );
+    if (data && typeof data === 'object') return data;
+    return null;
   }
 };
