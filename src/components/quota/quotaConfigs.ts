@@ -20,7 +20,6 @@ import type {
   CodexUsageWindow,
   CodexQuotaWindow,
   CodexUsagePayload,
-  CursorQuotaModel,
   CursorQuotaData,
   CursorQuotaState,
   GeminiCliCodeAssistPayload,
