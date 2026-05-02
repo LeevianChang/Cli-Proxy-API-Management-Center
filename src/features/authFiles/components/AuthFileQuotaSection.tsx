@@ -1,4 +1,4 @@
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import {
@@ -21,6 +21,52 @@ import { QuotaProgressBar } from '@/features/authFiles/components/QuotaProgressB
 import styles from '@/pages/AuthFilesPage.module.scss';
 
 type QuotaState = { status?: string; error?: string; errorStatus?: number } | undefined;
+
+const numberValue = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+const stringValue = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+};
+
+const buildCursorCachedQuota = (file: AuthFileItem): QuotaState => {
+  const currentUsage = numberValue(file.cursor_current_usage ?? file['cursor_current_usage']);
+  const usageLimit = numberValue(file.cursor_usage_limit ?? file['cursor_usage_limit']);
+  const remaining = numberValue(file.cursor_remaining ?? file['cursor_remaining']);
+  const nextReset = numberValue(file.cursor_next_reset ?? file['cursor_next_reset']);
+  const billingModel = stringValue(file.cursor_billing_model ?? file['cursor_billing_model']);
+  const planLabel = stringValue(file.cursor_plan_label ?? file['cursor_plan_label']);
+
+  if (
+    currentUsage === undefined &&
+    usageLimit === undefined &&
+    remaining === undefined &&
+    nextReset === undefined &&
+    billingModel === undefined &&
+    planLabel === undefined
+  ) {
+    return undefined;
+  }
+
+  const percentUsed =
+    typeof currentUsage === 'number' && typeof usageLimit === 'number' && usageLimit > 0
+      ? Math.max(0, Math.min(100, (currentUsage / usageLimit) * 100))
+      : undefined;
+
+  return {
+    status: 'success',
+    models: [],
+    billingModel,
+    planLabel,
+    currentUsage,
+    usageLimit,
+    remaining,
+    percentUsed,
+    nextReset,
+  } as QuotaState;
+};
 
 const getQuotaConfig = (type: QuotaProviderType) => {
   if (type === 'antigravity') return ANTIGRAVITY_CONFIG;
@@ -103,12 +149,17 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     renderQuotaItems: (quota: unknown, t: TFunction, helpers: unknown) => unknown;
   };
 
-  const quotaStatus = quota?.status ?? 'idle';
+  const cachedQuota = useMemo(
+    () => (quotaType === 'cursor' ? buildCursorCachedQuota(file) : undefined),
+    [file, quotaType]
+  );
+  const displayQuota = quota ?? cachedQuota;
+  const quotaStatus = displayQuota?.status ?? 'idle';
   const canRefreshQuota = !disableControls && !file.disabled;
   const quotaErrorMessage = resolveQuotaErrorMessage(
     t,
-    quota?.errorStatus,
-    quota?.error || t('common.unknown_error')
+    displayQuota?.errorStatus,
+    displayQuota?.error || t('common.unknown_error')
   );
 
   return (
@@ -130,8 +181,8 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
             message: quotaErrorMessage
           })}
         </div>
-      ) : quota ? (
-        (config.renderQuotaItems(quota, t, { styles, QuotaProgressBar }) as ReactNode)
+      ) : displayQuota ? (
+        (config.renderQuotaItems(displayQuota, t, { styles, QuotaProgressBar }) as ReactNode)
       ) : (
         <div className={styles.quotaMessage}>{t(`${config.i18nPrefix}.idle`)}</div>
       )}
